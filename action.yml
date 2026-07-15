@@ -11,12 +11,17 @@ inputs:
     required: true
 
 runs:
-  using: 'docker'
-  image: 'robwhitby/shakedown'
-  entrypoint: /usr/local/bin/action.sh
-  args:
-  - ${{ inputs.tests }}
-  - ${{ inputs.url }}
+  using: 'composite'
+  steps:
+    - shell: bash
+      env:
+        SHAKEDOWN_URL: ${{ inputs.url }}
+        TESTS: ${{ inputs.tests }}
+      run: |
+        [ -f "${TESTS}" ] || { echo "error: test file '${TESTS}' does not exist" >&2; exit 1; }
+        [ -n "${SHAKEDOWN_URL}" ] || { echo "error: 'url' required" >&2; exit 1; }
+        export PATH="${{ github.action_path }}:${PATH}"
+        bash "${TESTS}"
 
 branding:
   icon: check
