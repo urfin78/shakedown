@@ -13,9 +13,9 @@ shakedown GET /about                        # make a GET request
   header 'Expires'                          # assert response header exists containing string
   contains 'DuckDuckGo'                     # assert response body contains string
 
-shakedown POST / -L -d "q=Bob%20Seger"      # make a POST request with form data
+shakedown POST https://httpbingo.org/post -d "q=Bob%20Seger"  # make a POST request with form data
   status 200
-  contains 'Robert Clark Seger'
+  contains 'Bob Seger'                      # httpbingo echoes the submitted form data
 
 shakedown GET http://www.google.com -L      # provide full url to override default base url.
   status 200                                # -L cURL option to follow redirects
