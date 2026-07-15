@@ -36,12 +36,14 @@ WORKING_DIR=$(mktemp -d -t shakedown.XXXXXX)
 RESPONSE_BODY="${WORKING_DIR}/body"
 RESPONSE_HEADERS="${WORKING_DIR}/headers"
 
-AUTH=""
+CURL_OPTS=(-sS -D "${RESPONSE_HEADERS}" --connect-timeout "${CONNECT_TIMEOUT}" --max-time "${MAX_TIME}")
 if [ -n "${CREDENTIALS}" ]; then
-  AUTH="--anyauth --user ${CREDENTIALS}"
+  # pass credentials via config file so they don't show up in the process list
+  CURL_CONFIG="${WORKING_DIR}/curlrc"
+  _ESCAPED=${CREDENTIALS//\\/\\\\}
+  printf 'user = "%s"\n' "${_ESCAPED//\"/\\\"}" > "${CURL_CONFIG}"
+  CURL_OPTS+=(--anyauth --config "${CURL_CONFIG}")
 fi
-
-CURL="curl -sS ${AUTH} -D ${RESPONSE_HEADERS} --connect-timeout ${CONNECT_TIMEOUT} --max-time ${MAX_TIME}"
 
 CRED=$(tput setaf 1 2> /dev/null)
 CGREEN=$(tput setaf 2 2> /dev/null)
@@ -93,11 +95,11 @@ shakedown() {
   fi
   echo
   echo "${METHOD} ${URL}"
-  METHOD_OPT="-X ${METHOD}"
+  METHOD_OPT=(-X "${METHOD}")
   if [ "${METHOD}" = "HEAD" ]; then
-    METHOD_OPT="-I"
+    METHOD_OPT=(-I)
   fi
-  ${CURL} ${METHOD_OPT} "${@:3}" "${URL}" > ${RESPONSE_BODY}
+  curl "${CURL_OPTS[@]}" "${METHOD_OPT[@]}" "${@:3}" "${URL}" > "${RESPONSE_BODY}"
 }
 
 # assertions
@@ -111,7 +113,7 @@ no_header() {
 }
 
 status() {
-  STATUS_CODE=$(grep -Eo "^HTTP.+ [1-5][0-9][0-9] " ${RESPONSE_HEADERS} | grep -Eo '[1-5][0-9][0-9]' | tail -n1)
+  STATUS_CODE=$(grep -Eo "^HTTP.+ [1-5][0-9][0-9] " "${RESPONSE_HEADERS}" | grep -Eo '[1-5][0-9][0-9]' | tail -n1)
   [[ "${STATUS_CODE}" = "${1}" ]] && _pass "status ${1}" || _fail "status ${1} (actual: ${STATUS_CODE})"
 }
 
@@ -132,7 +134,7 @@ content_type() {
 
 header_contains() {
 	HEADER_NAME=${1}
-  HEADER="$(_get_header $HEADER_NAME)"
+  HEADER="$(_get_header "${HEADER_NAME}")"
   echo "${HEADER}" | grep -Fq "${2}" && _pass "${HEADER_NAME}: ${2}" || _fail "${HEADER_NAME}: ${2} (actual: ${HEADER})"
 }
 
